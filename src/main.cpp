@@ -20,6 +20,7 @@ GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(
     GxEPD2_420_GDEY042T81(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY));
 
 U8G2_FOR_ADAFRUIT_GFX u8g2;   // smooth big fonts (Adafruit GFX built-ins are tiny/blocky)
+SPIClass epdSPI(HSPI);   // FSPI (default SPI) does not reach the panel on this board; HSPI (SPI3) does
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
 
@@ -71,7 +72,8 @@ void setup() {
   delay(500);
   Serial.println("\nBBQ scaffold booting, version " BUILD_VERSION);
 
-  SPI.begin(EPD_SCK, -1, EPD_MOSI, EPD_CS);
+  epdSPI.begin(EPD_SCK, -1, EPD_MOSI, -1);   // CS is driven by GxEPD2, so ss=-1
+  display.epd2.selectSPI(epdSPI, SPISettings(4000000, MSBFIRST, SPI_MODE0));
   Serial.println("display init...");
   display.init(115200, true, 2, false);
   Serial.println("display ok");
