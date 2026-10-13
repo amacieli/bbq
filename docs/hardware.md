@@ -24,4 +24,10 @@ The old `pinout-mappings.md` listed DC/RST/BUSY as 27/26/25 - those don't exist/
 - Healthy timings in the log: `_Update_Full` ~1.7 s, `_Update_Part` ~0.38 s (values are microseconds). ~6 ms = panel not responding.
 - Board is connected via the UART (CH343) USB port -> Serial is UART0.
 
-Temperature probe (3.5mm) and fan driver: not yet specified.
+## Probe and fan (source: BBQ Guru DigiQ DX3, Amazon B07KKNYTTR)
+Probes and Pit Viper fan are reused from the user's earlier DigiQ. Listing says: 1x 6ft pit probe + 1x 6ft food probe, Pit Viper fan/blower,
+100-240V AC supply (that is the unit's adapter, not the fan). Not yet measured - TO CONFIRM from the physical parts:
+- Probe type (assumed NTC thermistor), plug type (mono/stereo 3.5mm), resistance at room temp / ice water / boiling.
+- Fan voltage, current (label or adapter), connector wiring.
+Planned: thermistor divider -> ADS1115 (16-bit I2C ADC; the ESP32 ADC is too noisy/nonlinear), Steinhart-Hart from 3 measured points;
+fan via logic-level MOSFET + flyback diode (if low-voltage DC), time-proportioned PID.
