@@ -64,6 +64,7 @@ void setup() {
   display.setFullWindow();
 
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);  // modem sleep makes the unit miss ARP/broadcast -> unreachable
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("Wi-Fi");
   for (int i = 0; i < 60 && WiFi.status() != WL_CONNECTED; i++) { delay(500); Serial.print('.'); }
