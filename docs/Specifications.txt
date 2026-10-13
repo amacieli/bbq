@@ -1,0 +1,59 @@
+# Objective
+
+Create a barbecue tracking app, to help automate management of a green egg grill, and allow both local and remote communication of status, and enable local and remote control of settings.
+
+# Main hardware components
+
+- ESP32 main control unit (with wifi)
+- 4.2" waveshare e-ink display
+- 3.5mm jack for a temperature probe
+- 3.5mm jack for controlling a fan
+
+# Main software components
+
+- Zephyr was chosen to facilitate the following.
+- Web-based interface to display information and capture settings adjustments.  Web server.
+- Wifi connection.
+
+# Main requirements
+
+1. Parallel process that polls the temperature probe and records the temperature every 15 seconds (adjustable).
+2. Parallel process that runs a web server to display data and capture changes to settings.
+3. Parallel process to run a PID controller to turn the fan on and off based on user-provided settings.
+
+## Temperature tracking process
+
+As soon as the unit is switched on, it will look at the frequency of temperature recording required, and (let's say if it's 15 seconds) then every 15 seconds it will read the temperature, the time, and store the result in a database.  This database can be read by other processes to display charts and perform other analytics as may be required.
+
+## Web page
+
+1. Will have a large indication of the current temperature, and the timestamp associated with that temperature.
+2. Will have a chart showing a trend of the temperature from the beginning of the cook through to current time.
+2a. The x axis will be time - the scale will change depending on the current time, and the number of data points.  The horizontal size of the chart on the display will be fixed.
+2b. The y axis will be temperature.  The bottom of the y axis will be the lowest temperature recorded during the current cook so far.  The top of the y axis will be the highest temperature recorded during the current cook so far.  The vertical size of the chart on the display will be fixed.
+2c. Two lines will be plotted.  One thick line showing the trend of the current temperature.  Another thin line showing the required temperature set point.  This will only change if the user adjusts the set point, so will change values only infrequently.  For both lines, a line will be drawn from the prior data value to the current data value, so the line visible on the screen will be continuous.
+3. A value indicating the current temperature set point.
+3a. Two buttons - an "up" and a "down" button.  Each will adjust the temperature set point up or down by 1 degree.
+3b. Holding a button down will cause the temperature set point to increase or decrease by 1 degree every 0.1 seconds, approximately.
+3c. There will be three smaller temperature set point "shortcuts".  Each of these will get their own up and down buttons to change the temperature setting shortcut.  Clicking on a shortcut number (not their buttons) will immediately change the current temperature set point to that value.
+4. An indicator showing whether or not the fan is currently on or off.
+5. A gear icon in the top right corner of the web page will cause the settings page to appear.
+5a. The following settings will be adjustable:
+- The frequency at which temperature is recorded.  Defaults to 15 seconds.
+- The default start temperature when a cook is started.
+- The web page refresh rate in seconds.
+- The e-paper display refresh rate in seconds.
+- The parameters of the ratios used in the PID controller.
+- Wifi ID and password.
+6. There will be an "alarm" temperature as well.  The idea is that if I set the alarm mode on the web page, a timer will indicate how many minutes it will take to reach that temperature.  If the temperature is reached or exceeded, the time remaining will just show 0 (not negative).  I should be able to switch off the "alarm" at any time.
+
+## e-paper display
+
+1. Will have a large indication of the current temperature, and the timestamp associated with that temperature.
+2. Will have a chart showing a trend of the temperature.  See "web page" for the specifics of what should be shown.
+3. Will have a fan icon that turns on when the fan is activated.
+
+## Wifi connectivity
+
+The unit will, when switched on, try to connect to the stored SSID (if it is non-null).  If it fails after three attempts, a screen will show up on the e-paper display prompting the user to log in via the special web page and specify the SSID and password.  The special web page (NOT the same as the "web page" above) will prompt for an SSID and password.  A "test" button will try to connect using the provided connections, and if successful, the SSID and password will get stored permanently, and the system will go to the "normal" web page, and normal operation.
+
