@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <SPI.h>
 #include <GxEPD2_BW.h>
+#include <U8g2_for_Adafruit_GFX.h>
 #include <ESPAsyncWebServer.h>
 #include "pins.h"
 #include "version.h"
@@ -18,30 +19,43 @@
 GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(
     GxEPD2_420_GDEY042T81(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY));
 
+U8G2_FOR_ADAFRUIT_GFX u8g2;   // smooth big fonts (Adafruit GFX built-ins are tiny/blocky)
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
 
 struct State { float temp = 20; int setpoint = 110; bool fan = false; } st;
-volatile bool epdDirty = true;
 
-static void drawScreen() {
-  display.setRotation(0);  // landscape 400x300
-  display.setPartialWindow(0, 0, display.width(), display.height());
+static void centerText(const char *t, int y) {
+  u8g2.setCursor((display.width() - u8g2.getUTF8Width(t)) / 2, y);
+  u8g2.print(t);
+}
+
+// Landscape 400x300. Big temperature (logisoso92 digits), status line, version footer.
+static void drawScreen(bool full) {
+  char temp[16], line[48];
+  snprintf(temp, sizeof temp, "%.1f", st.temp);
+  snprintf(line, sizeof line, "Set %d    Fan %s", st.setpoint, st.fan ? "ON" : "off");
+  display.setRotation(0);
+  if (full) display.setFullWindow(); else display.setPartialWindow(0, 0, display.width(), display.height());
   display.firstPage();
   do {
     display.fillScreen(GxEPD_WHITE);
-    display.setTextColor(GxEPD_BLACK);
-    display.setTextSize(6);
-    display.setCursor(20, 90);
-    display.printf("%.1f", st.temp);
-    display.setTextSize(2);
-    display.setCursor(20, 150);
-    display.printf("Set %d  Fan %s", st.setpoint, st.fan ? "ON" : "off");
-    display.setCursor(20, 270);
-    display.print(WiFi.localIP());
-    display.setTextSize(1);
-    display.setCursor(20, 288);
-    display.print("v" BUILD_VERSION);
+    u8g2.setFontMode(1);
+    u8g2.setForegroundColor(GxEPD_BLACK);
+    u8g2.setBackgroundColor(GxEPD_WHITE);
+    u8g2.setFont(u8g2_font_helvB14_tf);
+    u8g2.setCursor(10, 24);  u8g2.print("BBQ");
+    u8g2.setFont(u8g2_font_helvR10_tf);
+    u8g2.setCursor(display.width() - u8g2.getUTF8Width("\xC2\xB0" "C") - 10, 24); u8g2.print("\xC2\xB0" "C");
+    u8g2.setFont(u8g2_font_logisoso92_tn);
+    centerText(temp, 160);
+    display.drawFastHLine(10, 185, display.width() - 20, GxEPD_BLACK);
+    u8g2.setFont(u8g2_font_helvB18_tf);
+    centerText(line, 225);
+    u8g2.setFont(u8g2_font_helvR10_tf);
+    u8g2.setCursor(10, 290);  u8g2.print(WiFi.localIP().toString());
+    char ver[32]; snprintf(ver, sizeof ver, "v" BUILD_VERSION);
+    u8g2.setCursor(display.width() - u8g2.getUTF8Width(ver) - 10, 290); u8g2.print(ver);
   } while (display.nextPage());
 }
 
@@ -61,7 +75,8 @@ void setup() {
   Serial.println("display init...");
   display.init(115200, true, 2, false);
   Serial.println("display ok");
-  display.setFullWindow();
+  display.setRotation(0);   // landscape, 400x300
+  u8g2.begin(display);
 
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);  // modem sleep makes the unit miss ARP/broadcast -> unreachable
@@ -73,7 +88,7 @@ void setup() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *r) { r->send(200, "text/html", INDEX_HTML); });
   server.on("/api/setpoint", HTTP_POST, [](AsyncWebServerRequest *r) {
     if (r->hasParam("delta")) st.setpoint = constrain(st.setpoint + r->getParam("delta")->value().toInt(), 50, 400);
-    pushState(); epdDirty = true;
+    pushState();
     r->send(204);
   });
   server.addHandler(&events);
@@ -91,8 +106,9 @@ void loop() {
     st.fan = st.temp < st.setpoint;
     pushState();
   }
-  if (epdDirty && now - lastEpd >= 15000) { // e-paper: at most every 15 s
-    lastEpd = now; epdDirty = false; drawScreen();
+  if (now - lastEpd >= 5000) {              // e-paper refresh every 5 s (partial); full refresh every ~10 min to clear ghosting
+    lastEpd = now;
+    static uint32_t n = 0;
+    drawScreen(n++ % 120 == 0);
   }
-  if (now - lastEpd >= 30000) epdDirty = true;
 }
