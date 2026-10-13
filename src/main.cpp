@@ -6,6 +6,7 @@
 #include <GxEPD2_BW.h>
 #include <ESPAsyncWebServer.h>
 #include "pins.h"
+#include "version.h"
 #include "web_index.h"
 #if __has_include("secrets.h")
 #include "secrets.h"
@@ -38,6 +39,9 @@ static void drawScreen() {
     display.printf("Set %d  Fan %s", st.setpoint, st.fan ? "ON" : "off");
     display.setCursor(20, 270);
     display.print(WiFi.localIP());
+    display.setTextSize(1);
+    display.setCursor(20, 288);
+    display.print("v" BUILD_VERSION);
   } while (display.nextPage());
 }
 
@@ -51,10 +55,12 @@ static void pushState() {
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\nBBQ scaffold booting");
+  Serial.println("\nBBQ scaffold booting, version " BUILD_VERSION);
 
   SPI.begin(EPD_SCK, -1, EPD_MOSI, EPD_CS);
+  Serial.println("display init...");
   display.init(115200, true, 2, false);
+  Serial.println("display ok");
   display.setFullWindow();
 
   WiFi.mode(WIFI_STA);
@@ -76,6 +82,8 @@ void setup() {
 void loop() {
   static uint32_t lastSample = 0, lastEpd = 0;
   uint32_t now = millis();
+  static uint32_t lastBeat = 0;
+  if (now - lastBeat >= 5000) { lastBeat = now; Serial.printf("v" BUILD_VERSION " [%lus] wifi=%d ip=%s heap=%u psram=%u temp=%.1f\n", now/1000, WiFi.status(), WiFi.localIP().toString().c_str(), ESP.getFreeHeap(), ESP.getFreePsram(), st.temp); }
   if (now - lastSample >= 1000) {          // simulated temperature drifting toward setpoint
     lastSample = now;
     st.temp += (st.setpoint - st.temp) * 0.02f;
